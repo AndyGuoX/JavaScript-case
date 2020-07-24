@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>QQ表情</title>
+  <style>
+    #box,
+    #container {
+      float: left;
+      width: 200px;
+      height: 200px;
+      border: 1px solid #f00;
+      overflow: auto;
+    }
+  </style>
+</head>
+
+<body>
+<div id="box"></div>
+<div id="container"></div>
+<script>
+  ;(function () {
+    const oBox       = document.getElementById('box'),
+          oContainer = document.getElementById('container'),
+          img_suffix = '.gif',
+          img_path   = './img/';
+
+    const init = () => {
+      initImg(131);
+      bindEvent();
+    };
+
+    const bindEvent = () => {
+      oBox.addEventListener('click', selectExpression, false);
+    };
+
+    function initImg(imgNum) {
+      const imgFrag = document.createDocumentFragment();
+      let imgItem;
+      for (var i = 1; i <= imgNum; i++) {
+        imgItem = document.createElement('img');
+        imgItem.src = img_path + i + img_suffix;
+        imgFrag.appendChild(imgItem);
+      }
+      oBox.appendChild(imgFrag);
+    }
+
+    function selectExpression(e) {
+      e = e || window.event;
+      const tar     = e.target || e.srcElement,
+            tagName = tar.tagName.toLowerCase();
+      let imgItem;
+      if (tagName === 'img') {
+        imgItem = document.createElement('img');
+        imgItem.src = tar.src;
+        oContainer.appendChild(imgItem);
+      }
+    }
+
+    init();
+  })();
+</script>
+</body>
+
+</html>
