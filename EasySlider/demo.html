@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>demo</title>
+  <link rel="stylesheet" href="easy-slider.css">
+</head>
+<body>
+<div class="easy-slider" id="J_slider_wrap">
+  <ul class="slider-ul J-slider-ul clearfix">
+    <!-- li里面可以放置内容 如 img等 -->
+    <li class="slider-item" style="background-color:#0037ff;"></li>
+    <li class="slider-item" style="background-color:#ffe100;"></li>
+    <li class="slider-item" style="background-color:#ff0000;"></li>
+    <li class="slider-item" style="background-color:#00ff7b;"></li>
+    <li class="slider-item" style="background-color:#27302c;"></li>
+    <li class="slider-item" style="background-color:#fc00ff;"></li>
+  </ul>
+  <!-- 分页器如需改变 需要修改css样式覆盖 -->
+  <ul class="tab-ul J-tab-ul clearfix"></ul>
+  <div class="slider-btn btn-pre J-btn-pre">
+    <!-- 这里的span可以自己替换成图片 -->
+    <span class="triangle tri-left"></span>
+  </div>
+  <div class="slider-btn btn-next J-btn-next">
+    <!-- 这里的span可以自己替换成图片 -->
+    <span class="triangle tri-right"></span>
+  </div>
+</div>
+<script src="easy-slider.js"></script>
+<script>
+  let slider = new EasySlider({
+    container: '#J_slider_wrap', // 容器选择器 必填项
+    width: 1200, // 容器宽度 选填
+    height: 300, // 容器高度 选填
+    interval: 3000, // 轮播间隔时长(ms) 选填
+    speed: 500, // 滑动动画耗时(ms) 选填
+  });
+
+  slider.init(); // 初始化
+</script>
+</body>
+</html>
