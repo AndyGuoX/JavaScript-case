@@ -1,0 +1,232 @@
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  font-family: "lucida grande", "lucida sans unicode", lucida, helvetica, "Hiragino Sans GB", "MicrosoftYaHei", "WenQuanYi Micro Hei", sans-serif;
+  font-size: 14px;
+}
+
+ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+th,
+td {
+  padding: 0;
+  margin: 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-weight: normal;
+}
+
+button {
+  margin: 0;
+  border: 0;
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  outline: none;
+}
+
+.easy-date-picker {
+  position: absolute;
+  top: 100px;
+  left: 45%;
+  z-index: 1;
+  background-color: #fff;
+  border-radius: 2px;
+  box-shadow: 0 9px 28px 8px rgba(0, 0, 0, .08);
+}
+
+.easy-date-picker button {
+  padding: 0;
+  line-height: 40px;
+  color: rgba(0, 0, 0, .25);
+  background-color: #fff;
+  cursor: pointer;
+  transition: .3s;
+}
+
+.easy-date-picker .date-picker-panel {
+  display: flex;
+  flex-direction: column;
+  width: 280px;
+  text-align: center;
+}
+
+.easy-date-picker .picker-header {
+  display: flex;
+  padding: 0 8px;
+  border-bottom: 1px solid #f0f0f0;
+  color: rgba(0, 0, 0, 0.8);
+}
+
+.easy-date-picker .picker-header button {
+  position: relative;
+  flex: 0;
+  min-width: 1.6em;
+  line-height: 40px;
+}
+
+.easy-date-picker .super-pre-btn::before,
+.easy-date-picker .super-pre-btn::after,
+.easy-date-picker .pre-btn::before,
+.easy-date-picker .super-next-btn::before,
+.easy-date-picker .super-next-btn::after,
+.easy-date-picker .next-btn::before {
+  content: "";
+  position: absolute;
+  display: block;
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  transition: .3s;
+  transform: rotate(-45deg);
+}
+
+.easy-date-picker .super-pre-btn::before,
+.easy-date-picker .super-pre-btn::after,
+.easy-date-picker .pre-btn::before {
+  border-right-width: 0;
+  border-bottom-width: 0;
+}
+
+.easy-date-picker .super-next-btn::before,
+.easy-date-picker .super-next-btn::after,
+.easy-date-picker .next-btn::before {
+  border-left-width: 0;
+  border-top-width: 0;
+}
+
+.easy-date-picker .super-pre-btn::before,
+.easy-date-picker .pre-btn::before {
+  top: 15px;
+  left: 5px;
+}
+
+.easy-date-picker .super-pre-btn::after {
+  top: 15px;
+  left: 10px;
+}
+
+.easy-date-picker .super-next-btn::before,
+.easy-date-picker .next-btn::before {
+  top: 15px;
+  right: 5px;
+}
+
+.easy-date-picker .super-next-btn::after {
+  top: 15px;
+  right: 10px;
+}
+
+.easy-date-picker .picker-header > button:hover::after,
+.easy-date-picker .picker-header > button:hover::before {
+  color: rgba(0, 0, 0, .8);
+}
+
+.easy-date-picker .header-view {
+  flex: 1;
+  line-height: 40px;
+  font-weight: 600;
+}
+
+.easy-date-picker .header-view button {
+  color: inherit;
+  font-weight: inherit;
+}
+
+.easy-date-picker .header-view button:hover {
+  color: #1890ff;
+}
+
+.easy-date-picker .picker-month-btn {
+  margin-left: 8px;
+}
+
+.easy-date-picker .picker-body {
+  padding: 8px 12px;
+}
+
+.easy-date-picker .picker-content {
+  width: 252px;
+  table-layout: fixed;
+  border-collapse: collapse;
+}
+
+.easy-date-picker .picker-content th {
+  width: 36px;
+  height: 30px;
+  line-height: 30px;
+  font-weight: 400;
+  color: rgba(0, 0, 0, .65);
+}
+
+.easy-date-picker .picker-content td {
+  width: 36px;
+  padding: 3px 0;
+  font-weight: 400;
+  color: rgba(0, 0, 0, .65);
+}
+
+.easy-date-picker .picker-cell {
+  cursor: pointer;
+}
+
+.easy-date-picker .picker-cell.picker-out-view {
+  color: rgba(0, 0, 0, .25);
+}
+
+.easy-date-picker .picker-cell:hover .picker-cell-inner {
+  background-color: #f5f5f5;
+}
+
+.easy-date-picker .picker-cell.picker-cell-selected .picker-cell-inner {
+  background-color: #1890ff;
+  color: #fff;
+}
+
+.easy-date-picker .picker-cell-inner {
+  position: relative;
+  z-index: 2;
+  display: inline-block;
+  min-width: 24px;
+  height: 24px;
+  line-height: 24px;
+  border-radius: 2px;
+  transition: .3s;
+}
+
+.easy-date-picker .picker-cell-inner.weekend {
+  background-color: #f5f5f5;
+}
+
+.easy-date-picker .picker-footer {
+  line-height: 38px;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.easy-date-picker .picker-footer button {
+  color: #1890ff;
+}
+
+.easy-date-picker .picker-footer button:hover {
+  color: #40a9ff;
+}
+
+.easy-date-picker .picker-clear-btn {
+  margin-left: 15px;
+}
+
