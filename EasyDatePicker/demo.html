@@ -18,28 +18,45 @@
 </head>
 <body>
 <div class="user-data-wrap_single">
-  <div class="easy-date-select" id="J_date_select"></div>
+  <div class="easy-date-select" id="J_date_select_single"></div>
 </div>
 
 <div class="user-data-wrap_range">
-  <!--  <div class="easy-date-select" id="J_date_select"></div> -->
+  <div class="easy-date-select" id="J_date_select_range"></div>
 </div>
 
 
 <script src="easy-date-picker.js"></script>
 <script>
-  const datePicker = new EasyDatePicker({
-    container: '#J_date_select',
-    defaultValue: '',
-    ranges: ['2015-01-01', '2024-12-31'],
-    animate: true,
-    animateTime: 200,
-    onChange: dateChange,
+  const datePickerSingle = new EasyDatePicker({
+    container: '#J_date_select_single',
+    defaultValue: '2020-01-01', // 初试日期
+    ranges: ['2015-01-01', '2024-12-31'], // 可选择日期范围
+    animate: false, // 是否支持日期切换动画 - 目前只支持淡入淡出
+    animateTime: 200, // 日期切换动画时间
+    supportRange: false,
+    onChange: dateChangeSingle, // 日期更改触发函数
   });
 
-  datePicker.init();
+  datePickerSingle.init();
 
-  function dateChange(value, str) {
+  const datePickerRange = new EasyDatePicker({
+    container: '#J_date_select_range',
+    defaultValue: '2020-01-01', // 初试日期
+    ranges: ['2015-01-01', '2024-12-31'], // 可选择日期范围
+    animate: false, // 是否支持日期切换动画 - 目前只支持淡入淡出
+    animateTime: 200, // 日期切换动画时间
+    supportRange: true,
+    onChange: dateChangeRange, // 日期更改触发函数
+  });
+
+  datePickerRange.init();
+
+  function dateChangeSingle(value, str) {
+    console.log(value, str);
+  }
+
+  function dateChangeRange(value, str) {
     console.log(value, str);
   }
 </script>

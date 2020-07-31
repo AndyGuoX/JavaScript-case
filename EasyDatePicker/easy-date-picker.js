@@ -265,21 +265,35 @@ var utils = (function () {
      * @returns {HTMLElement || null}
      */
     closestParent: function (element, selector) {
-      var elem    = document.querySelectorAll(selector),
-          elemLen = elem.length;
+      var elem, elemLen, _parent_;
+      if (typeof selector === 'string') {
+        elem = document.querySelectorAll(selector);
+        elemLen = elem.length;
 
-      if (elemLen === 0) return null;
+        if (elemLen === 0) return null;
 
-      while (1) {
-        var _parent_ = element.parentNode;
+        while (1) {
+          _parent_ = element.parentNode;
 
-        if (_parent_) {
-          for (let i = 0; i < elemLen; i++) {
-            if (_parent_ === elem[i]) return _parent_;
+          if (_parent_) {
+            for (let i = 0; i < elemLen; i++) {
+              if (_parent_ === elem[i]) return _parent_;
+            }
+            element = _parent_;
+          } else {
+            return null;
           }
-          element = _parent_;
-        } else {
-          return null;
+        }
+      } else {
+        while (1) {
+          _parent_ = element.parentNode;
+
+          if (_parent_) {
+            if (_parent_ === selector) return _parent_;
+            element = _parent_;
+          } else {
+            return null;
+          }
         }
       }
     },
@@ -593,7 +607,7 @@ var utils = (function () {
 
   const EasyDatePicker = function (opt) {
     let defaultOpt = {
-      container: '#J_date_select',
+      container: '',
       defaultValue: '',
       // format: 'YYYY-MM-DD',
       ranges: ['1900-01-01', '2099-12-31'],
@@ -705,18 +719,13 @@ var utils = (function () {
     renderDatePicker(dateObj, position) {
       const _self = this;
       // 初始化 date picker
-      _self.addDatePicker(_self.generateDatePicker(dateObj));
 
-      _self.pickerWrap = doc.getElementById('J_easy_date_picker');
+      _self.pickerWrap = _self.addDatePicker(_self.generateDatePicker(dateObj));
       _self.pickerPanelWrap = _self.pickerWrap.getElementsByClassName('J-picker-panel-container')[0];
 
       _self.pickerWrap.style.left = position.left + 'px';
 
-      if (_self.animate) {
-        _self.pickerWrap.style.top = position.top + _self.animateDis + 'px';
-      } else {
-        _self.pickerWrap.style.top = position.top + 'px';
-      }
+      _self.pickerWrap.style.top = position.top + _self.animateDis + 'px';
 
       _self.bindDatePanel();
       _self.bindCancelFocus();
@@ -837,11 +846,7 @@ var utils = (function () {
           if (_self.pickerWrap.className.includes('hidden')) {
             _self.pickerWrap.classList.remove('hidden');
             _self.pickerWrap.style.left = panelLeft + 'px';
-            if (_self.animate) {
-              _self.pickerWrap.style.top = panelTop + _self.animateDis + 'px';
-            } else {
-              _self.pickerWrap.style.top = panelTop + 'px';
-            }
+            _self.pickerWrap.style.top = panelTop + _self.animateDis + 'px';
             animate(_self.pickerWrap, {
               top: panelTop,
               opacity: 1
@@ -857,8 +862,8 @@ var utils = (function () {
         e = e || window.event;
         const _self    = this,
               tar      = e.target || e.srcElement,
-              isSelect = closestParent(tar, '#J_date_select'),
-              isPicker = closestParent(tar, '#J_easy_date_picker');
+              isSelect = closestParent(tar, _self.container),
+              isPicker = closestParent(tar, _self.pickerWrap);
         if (!(isPicker || isSelect)) {
           _self.dateCancelFocus();
         }
@@ -1450,8 +1455,9 @@ var utils = (function () {
           children = null;
       if (typeof picker == 'string') {
         div.innerHTML = picker;
-        children = elemChildren(div);
-        doc.body.appendChild(div.children[0]);
+        children = elemChildren(div)[0];
+        doc.body.appendChild(children);
+        return children;
       }
     },
 
@@ -1579,7 +1585,7 @@ var utils = (function () {
 
     // 获取 date picker 外层模板
     getDatePickerTpl() {
-      return '<div class="easy-date-picker" id="J_easy_date_picker">\
+      return '<div class="easy-date-picker">\
                 <div class="picker-panel-container J-picker-panel-container">{{children}}</div>\
               </div>';
     },
