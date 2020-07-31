@@ -595,10 +595,11 @@ var utils = (function () {
     let defaultOpt = {
       container: '#J_date_select',
       defaultValue: '',
-      ranges: ['1900-01-01', '2099-12-31'],
       // format: 'YYYY-MM-DD',
+      ranges: ['1900-01-01', '2099-12-31'],
       supportRange: false,
       animate: false,
+      animateTime: 200,
       onChange: function () {}
     };
 
@@ -619,7 +620,7 @@ var utils = (function () {
 
     this.pickerPanelWrap = null;
 
-    this.pickerContent = null;
+    this.pickerBody = null;
     this.tdList = null;
 
     this.superPreBtn = null;
@@ -656,7 +657,7 @@ var utils = (function () {
     // 模板替换正则
     tplReg: /{{(.*?)}}/gim,
 
-    // 动画移入移除的距离
+    // 动画移入移出的距离
     animateDis: 25,
 
     // 初始化
@@ -710,7 +711,12 @@ var utils = (function () {
       _self.pickerPanelWrap = _self.pickerWrap.getElementsByClassName('J-picker-panel-container')[0];
 
       _self.pickerWrap.style.left = position.left + 'px';
-      _self.pickerWrap.style.top = position.top + _self.animateDis + 'px';
+
+      if (_self.animate) {
+        _self.pickerWrap.style.top = position.top + _self.animateDis + 'px';
+      } else {
+        _self.pickerWrap.style.top = position.top + 'px';
+      }
 
       _self.bindDatePanel();
       _self.bindCancelFocus();
@@ -728,8 +734,8 @@ var utils = (function () {
     bindDatePanel() {
       const _self = this;
 
-      _self.pickerContent = _self.pickerWrap.querySelector('.picker-content tbody');
-      _self.tdList = _self.pickerContent.getElementsByTagName('td');
+      _self.pickerBody = _self.pickerWrap.querySelector('.picker-content tbody');
+      _self.tdList = _self.pickerBody.getElementsByTagName('td');
 
       _self.superPreBtn = _self.pickerWrap.getElementsByClassName('J-super-pre-btn')[0];
       _self.preBtn = _self.pickerWrap.getElementsByClassName('J-pre-btn')[0];
@@ -755,7 +761,7 @@ var utils = (function () {
       addEvent(_self.nextBtn, 'click', _self.eventNextMonth.bind(_self));
 
       // 选择日期
-      addEvent(_self.pickerContent, 'click', _self.selectDate.bind(_self));
+      addEvent(_self.pickerBody, 'click', _self.selectDate.bind(_self));
 
       // 选择今天
       addEvent(_self.todyBtn, 'click', _self.selectToday.bind(_self));
@@ -774,12 +780,12 @@ var utils = (function () {
     bindYearPanel() {
       const _self = this;
 
-      _self.pickerContent = _self.pickerWrap.querySelector('.picker-content tbody');
+      _self.pickerBody = _self.pickerWrap.querySelector('.picker-content tbody');
       _self.superPreBtn = _self.pickerWrap.getElementsByClassName('J-super-pre-btn')[0];
       _self.sectionYearBtn = _self.pickerWrap.getElementsByClassName('J-picker-section-btn')[0];
       _self.superNextBtn = _self.pickerWrap.getElementsByClassName('J-super-next-btn')[0];
 
-      addEvent(_self.pickerContent, 'click', _self.eventSelectYear.bind(_self));
+      addEvent(_self.pickerBody, 'click', _self.eventSelectYear.bind(_self));
       addEvent(_self.superPreBtn, 'click', _self.preRangeYear.bind(_self));
       addEvent(_self.superNextBtn, 'click', _self.nextRangeYear.bind(_self));
     },
@@ -788,12 +794,12 @@ var utils = (function () {
     bindMonthPanel() {
       const _self = this;
 
-      _self.pickerContent = _self.pickerWrap.querySelector('.picker-content tbody');
+      _self.pickerBody = _self.pickerWrap.querySelector('.picker-content tbody');
       _self.superPreBtn = _self.pickerWrap.getElementsByClassName('J-super-pre-btn')[0];
       _self.yearBtn = _self.pickerWrap.getElementsByClassName('J-picker-year-btn')[0];
       _self.superNextBtn = _self.pickerWrap.getElementsByClassName('J-super-next-btn')[0];
 
-      addEvent(_self.pickerContent, 'click', _self.eventSelectMonth.bind(_self));
+      addEvent(_self.pickerBody, 'click', _self.eventSelectMonth.bind(_self));
       addEvent(_self.superPreBtn, 'click', _self.monthPreYear.bind(_self));
       addEvent(_self.yearBtn, 'click', _self.changeYear.bind(_self));
       addEvent(_self.superNextBtn, 'click', _self.monthNextYear.bind(_self));
@@ -823,21 +829,29 @@ var utils = (function () {
             left: panelLeft,
             top: panelTop
           });
+          animate(_self.pickerWrap, {
+            top: panelTop,
+            opacity: 1
+          }, 300);
         } else {
-          _self.pickerWrap.classList.remove('hidden');
-          _self.pickerWrap.style.left = panelLeft + 'px';
-          _self.pickerWrap.style.top = panelTop + _self.animateDis + 'px';
+          if (_self.pickerWrap.className.includes('hidden')) {
+            _self.pickerWrap.classList.remove('hidden');
+            _self.pickerWrap.style.left = panelLeft + 'px';
+            if (_self.animate) {
+              _self.pickerWrap.style.top = panelTop + _self.animateDis + 'px';
+            } else {
+              _self.pickerWrap.style.top = panelTop + 'px';
+            }
+            animate(_self.pickerWrap, {
+              top: panelTop,
+              opacity: 1
+            }, 300);
+          }
         }
-
-        animate(_self.pickerWrap, {
-          top: panelTop,
-          opacity: 1
-        }, 300);
-
       });
     },
 
-    // 取消 日期选择焦点 事件
+    // 绑定 取消 日期选择焦点 事件
     bindCancelFocus() {
       addEvent(doc, 'click', (e) => {
         e = e || window.event;
@@ -854,6 +868,7 @@ var utils = (function () {
     // 日期取消焦点
     dateCancelFocus() {
       const _self = this;
+
       _self.pickerWrap.classList.add('hidden');
       _self.pickerWrap.style.opacity = 0;
       _self.dateSelector.classList.remove('focus');
@@ -1099,13 +1114,33 @@ var utils = (function () {
       if (toYear === _self.selectYear && toMonth === _self.selectMonth) toDay = _self.selectDay;
       _self.yearBtn.innerText = _self.curYear + '年';
       _self.monthBtn.innerText = _self.curMonth + '月';
-      _self.removeContent();
-      _self.addContent(
-        _self.generateDateContent({
-          year: toYear,
-          month: toMonth,
-          day: toDay
-        }));
+
+      if (_self.animate) {
+        animate(_self.pickerBody, {
+          opacity: 0
+        }, _self.animateTime, function () {
+          _self.removeContent();
+          _self.addContent(
+            _self.generateDateContent({
+              year: toYear,
+              month: toMonth,
+              day: toDay
+            }));
+
+          animate(_self.pickerBody, {
+            opacity: 1
+          }, _self.animateTime);
+        });
+      } else {
+        _self.removeContent();
+        _self.addContent(
+          _self.generateDateContent({
+            year: toYear,
+            month: toMonth,
+            day: toDay
+          }));
+      }
+
     },
 
     // 激活当前选中日期
@@ -1388,13 +1423,13 @@ var utils = (function () {
      */
     addContent(content) {
       const _self = this;
-      _self.pickerContent.innerHTML = content;
+      _self.pickerBody.innerHTML = content;
     },
 
     // 删除 content
     removeContent() {
       const _self = this;
-      _self.pickerContent.innerHTML = '';
+      _self.pickerBody.innerHTML = '';
     },
 
     // 添加 panel
