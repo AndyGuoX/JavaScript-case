@@ -587,14 +587,15 @@ var utils = (function () {
           elemChildren,
           getElemDocPosition,
           getStyles,
-          closestParent
+          closestParent,
+          animate
         } = utils.domOperateTools;
 
   const EasyDatePicker = function (opt) {
     let defaultOpt = {
       container: '#J_date_select',
       defaultValue: '',
-      ranges: [],
+      ranges: ['1900-01-01', '2099-12-31'],
       // format: 'YYYY-MM-DD',
       supportRange: false,
       animate: false,
@@ -612,6 +613,7 @@ var utils = (function () {
       }
     }
 
+    // dom 元素
     this.dateSelector = doc.querySelector(this.container);
     this.dateStart = null;
 
@@ -631,6 +633,7 @@ var utils = (function () {
     this.todyBtn = null;
     this.clearBtn = null;
 
+    // 数据记录
     this.curYear = 0; // 当前 date panel 年份
     this.curMonth = 0; // 当前 date panel 月份
     this.centerYear = 0; // 记录年份范围选择的中心年份
@@ -638,6 +641,9 @@ var utils = (function () {
     this.selectYear = 0; // 当前选择的年份
     this.selectMonth = 0; // 当前选中的月份
     this.selectDay = 0; // 当前选中的日期
+
+    this.minDate = this.ranges[0];
+    this.maxDate = this.ranges[1];
   };
 
   EasyDatePicker.prototype = {
@@ -650,27 +656,44 @@ var utils = (function () {
     // 模板替换正则
     tplReg: /{{(.*?)}}/gim,
 
+    // 动画移入移除的距离
+    animateDis: 25,
+
     // 初始化
     init() {
-      this.initOpt();
-      this.initBindEvent();
+      this.initSelect();
+      this.bindDateSelect();
     },
 
-    // 配置 opt
-    initOpt() {
+    // 初始化select
+    initSelect() {
       const _self = this;
-      let dateObj = _self.strToDate(_self.defaultValue);
-
-      if (dateObj.year) {
-        _self.curYear = _self.selectYear = dateObj.year;
-        _self.curMonth = _self.selectMonth = dateObj.month;
-        _self.selectDay = dateObj.day;
-        _self.renderDateSelect({
-          startDate: _self.defaultValue
-        });
+      let dateObj;
+      // 判断是否有默认值
+      if (_self.defaultValue) {
+        dateObj = _self.strToDate(_self.defaultValue);
+        if (_self.dateInRange(dateObj, _self.ranges)) {
+          // 且默认值在允许选择的范围
+          _self.curYear = _self.selectYear = dateObj.year;
+          _self.curMonth = _self.selectMonth = dateObj.month;
+          _self.selectDay = dateObj.day;
+          _self.renderDateSelect({startDate: _self.defaultValue});
+        } else {
+          dateObj = _self.strToDate(_self.minDate);
+          _self.curYear = dateObj.year;
+          _self.curMonth = dateObj.month;
+          _self.renderDateSelect({
+            startDate: '请选择日期'
+          });
+        }
       } else {
-        _self.curYear = new Date().getFullYear();
-        _self.curMonth = new Date().getMonth() + 1;
+        // 没有默认值的情况下判断今天是否在范围内
+        dateObj = _self.generateNowDate();
+        if (!_self.dateInRange(dateObj, _self.ranges)) {
+          dateObj = _self.strToDate(_self.minDate);
+        }
+        _self.curYear = dateObj.year;
+        _self.curMonth = dateObj.month;
         _self.renderDateSelect({
           startDate: '请选择日期'
         });
@@ -687,7 +710,7 @@ var utils = (function () {
       _self.pickerPanelWrap = _self.pickerWrap.getElementsByClassName('J-picker-panel-container')[0];
 
       _self.pickerWrap.style.left = position.left + 'px';
-      _self.pickerWrap.style.top = position.top + 'px';
+      _self.pickerWrap.style.top = position.top + _self.animateDis + 'px';
 
       _self.bindDatePanel();
       _self.bindCancelFocus();
@@ -699,13 +722,6 @@ var utils = (function () {
 
       _self.dateSelector.innerHTML = '<span class="date-start J-date-start">' + startDate + '</span>';
       _self.dateStart = _self.dateSelector.getElementsByClassName('J-date-start')[0];
-    },
-
-    // 初始事件绑定
-    initBindEvent() {
-      const _self = this;
-
-      _self.bindDateSelect();
     },
 
     // 绑定 date panel 事件
@@ -809,7 +825,14 @@ var utils = (function () {
           });
         } else {
           _self.pickerWrap.classList.remove('hidden');
+          _self.pickerWrap.style.left = panelLeft + 'px';
+          _self.pickerWrap.style.top = panelTop + _self.animateDis + 'px';
         }
+
+        animate(_self.pickerWrap, {
+          top: panelTop,
+          opacity: 1
+        }, 300);
 
       });
     },
@@ -832,6 +855,7 @@ var utils = (function () {
     dateCancelFocus() {
       const _self = this;
       _self.pickerWrap.classList.add('hidden');
+      _self.pickerWrap.style.opacity = 0;
       _self.dateSelector.classList.remove('focus');
       _self.dateStart.classList.remove('focus');
       if (_self.selectYear) {
@@ -891,7 +915,7 @@ var utils = (function () {
       let dateStr = '',
           dateObj = {};
 
-      if (tdElem) {
+      if (tdElem && !tdElem.className.includes('picker-cell-disable')) {
         dateStr = tdElem.getAttribute('title');
         dateObj = _self.strToDate(dateStr);
         _self.selectYear = dateObj.year;
@@ -1112,7 +1136,7 @@ var utils = (function () {
     // 生成日期 content
     generateDateContent({year, month, day}) {
       const _self         = this,
-            date          = new Date(`${year}-${month}-01`),
+            date          = new Date(`${year}-${month}-01`), // 1号日期对象
             weekForOne    = date.getDay(), // 1号是星期几
             thisMonthDays = new Date(year, month, 0).getDate(), // 本月天数
             preMonth      = (month - 1) === 0 ? 12 : (month - 1), // 上个月是几月
@@ -1135,7 +1159,12 @@ var utils = (function () {
           day: preMonthDays - i + 1,
           isOut: true,
           isSelected: false,
-          isWeekend: isWeekend
+          isWeekend: isWeekend,
+          isRange: _self.dateInRange({
+            year: preYear,
+            month: preMonth,
+            day: i
+          }, _self.ranges)
         });
         tr.innerHTML += td;
         tdNum++;
@@ -1149,7 +1178,12 @@ var utils = (function () {
           day: i,
           isOut: false,
           isSelected: (day === i),
-          isWeekend: isWeekend
+          isWeekend: isWeekend,
+          isRange: _self.dateInRange({
+            year,
+            month,
+            day: i
+          }, _self.ranges)
         });
         if (tdNum % 7 === 0 && tdNum !== 0) {
           tempDiv.appendChild(tr);
@@ -1167,7 +1201,12 @@ var utils = (function () {
           day: i,
           isOut: true,
           isSelected: false,
-          isWeekend: isWeekend
+          isWeekend: isWeekend,
+          isRange: _self.dateInRange({
+            year: nextYear,
+            month: nextMonth,
+            day: i
+          }, _self.ranges)
         });
         if (tdNum % 7 === 0) {
           tempDiv.appendChild(tr);
@@ -1183,7 +1222,7 @@ var utils = (function () {
     },
 
     // 生成日期 td
-    generateDateTd({year, month, day, isOut, isSelected, isWeekend}) {
+    generateDateTd({year, month, day, isOut, isSelected, isWeekend, isRange}) {
       let _self          = this,
           tdClassName    = 'picker-cell',
           innerClassName = 'picker-cell-inner',
@@ -1191,6 +1230,7 @@ var utils = (function () {
           dataObj        = {};
       tdClassName += isOut ? ' picker-out-view' : '';
       tdClassName += isSelected ? ' picker-cell-selected' : '';
+      tdClassName += !isRange ? ' picker-cell-disable' : '';
       innerClassName += isWeekend ? ' weekend' : '';
       dataObj = {
         tdClassName,
@@ -1536,7 +1576,16 @@ var utils = (function () {
       let month = date.getMonth() + 1;
       let day = date.getDate();
       return {year, month, day};
-    }
+    },
+
+    // 判断年月日是否在范围内
+    dateInRange(date, range) {
+      const _self = this,
+            min   = new Date(range[0]),
+            max   = new Date(range[1]),
+            now   = new Date(_self.dateToStr(date));
+      return now >= min && now <= max;
+    },
   };
 
   window.EasyDatePicker = EasyDatePicker;

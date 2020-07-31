@@ -45,6 +45,7 @@ button {
   background-color: #fff;
   border-radius: 2px;
   box-shadow: 0 9px 28px 8px rgba(0, 0, 0, .08);
+  opacity: 0;
 
   -webkit-user-select: none;
   -moz-user-select: none;
@@ -208,15 +209,44 @@ button {
 }
 
 .easy-date-picker .picker-cell {
+  position: relative;
   cursor: pointer;
+}
+
+.easy-date-picker .picker-cell::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  z-index: 1;
+  height: 24px;
+  -webkit-transform: translateY(-50%);
+  transform: translateY(-50%);
+}
+
+.easy-date-picker .picker-cell-disable {
+  cursor: not-allowed;
+}
+
+.easy-date-picker .picker-cell-disable::before {
+  background-color: #f5f5f5;
 }
 
 .easy-date-picker .picker-cell.picker-out-view {
   color: rgba(0, 0, 0, .25);
 }
 
+.easy-date-picker .picker-cell.picker-cell-disable {
+  color: rgba(0, 0, 0, .25);
+}
+
 .easy-date-picker .picker-cell:hover .picker-cell-inner {
   background-color: #e6f1fb;
+}
+
+.easy-date-picker .picker-cell-disable:hover .picker-cell-inner {
+  background-color: #f5f5f5;
 }
 
 .easy-date-picker .picker-cell.picker-cell-selected .picker-cell-inner {
@@ -298,7 +328,7 @@ button {
   justify-content: center;
   align-items: center;
   flex: 1;
-  border-bottom: 2px solid transparent;
+  border-bottom: 1px solid transparent;
   transition: .3s;
 }
 
