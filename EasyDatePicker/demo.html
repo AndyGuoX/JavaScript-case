@@ -4,51 +4,24 @@
   <meta charset="UTF-8">
   <title>easy-calendar-demo</title>
   <link rel="stylesheet" href="easy-date-picker.css">
+  <style>
+    .user-data-wrap {
+      width: 256px;
+      margin: 100px auto;
+    }
+  </style>
 </head>
 <body>
-<div class="easy-date-picker">
-  <div class="date-picker-panel">
-    <div class="picker-header">
-      <button class="super-pre-btn J-super-pre-btn"></button>
-      <button class="pre-btn J-pre-btn"></button>
-      <div class="header-view">
-        <button class="picker-year-btn J-picker-year-btn">2020年</button>
-        <button class="picker-month-btn J-picker-month-btn">7月</button>
-      </div>
-      <button class="next-btn J-next-btn"></button>
-      <button class="super-next-btn J-super-next-btn"></button>
-    </div>
-    <div class="picker-body">
-      <table class="picker-content">
-        <thead>
-        <tr>
-          <th>日</th>
-          <th>一</th>
-          <th>二</th>
-          <th>三</th>
-          <th>四</th>
-          <th>五</th>
-          <th>六</th>
-        </tr>
-        </thead>
-        <tbody>
-        <!-- picker-out-view -->
-        <!-- picker-cell-selected -->
-        </tbody>
-      </table>
-    </div>
-    <div class="picker-footer">
-      <button class="picker-today-btn J-picker-today-btn">今天</button>
-      <button class="picker-clear-btn J-picker-today-btn">清除</button>
-    </div>
-  </div>
+<div class="user-data-wrap">
+  <div class="easy-date-select" id="J_date_select"></div>
 </div>
+
 
 <script src="easy-date-picker.js"></script>
 <script>
   const datePicker = new EasyDatePicker({
-    container: 'J_easy_date_picker',
-    defaultValue: '2020-07-30',
+    container: '#J_date_select',
+    // defaultValue: '2020-07-30',
     onChange: dateChange,
   });
 
@@ -59,4 +32,5 @@
   }
 </script>
 </body>
+
 </html>

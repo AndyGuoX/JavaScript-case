@@ -206,11 +206,13 @@ var utils = (function () {
      * @returns {[]}
      */
     elemChildren: function (element) {
-      var arr      = [],
-          children = element.childNodes;
+      if (element.children) return element.children;
+      var arr   = [],
+          nodes = element.childNodes;
 
-      for (var i = 0; i < children.length; i++) {
-        var childItem = children[i];
+
+      for (var i = 0; i < nodes.length; i++) {
+        var childItem = nodes[i];
         if (childItem.nodeType === 1) {
           arr.push(childItem);
         }
@@ -256,26 +258,32 @@ var utils = (function () {
     },
 
     /**
-     * @name: elemParent
-     * @description: 寻找第n层父元素
+     * @name: closestParent
+     * @description: 寻找元素最近的父级元素
      * @param element:HTMLElement
-     * @param n
-     * @returns {HTMLElement}
+     * @param selector 选择器
+     * @returns {HTMLElement || null}
      */
-    elemParent: function (element, n) {
-      n = n || 1;
-      var _parentNode = element;
+    closestParent: function (element, selector) {
+      var elem    = document.querySelectorAll(selector),
+          elemLen = elem.length;
 
-      if (n < 0 || typeof n !== 'number') return undefined;
+      if (elemLen === 0) return null;
 
-      for (var i = 0; i < n; i++) {
-        var _parent_ = _parentNode.parentNode;
-        _parentNode = _parent_;
-        if (!_parent_) break;
+      while (1) {
+        var _parent_ = element.parentNode;
+
+        if (_parent_) {
+          for (let i = 0; i < elemLen; i++) {
+            if (_parent_ === elem[i]) return _parent_;
+          }
+          element = _parent_;
+        } else {
+          return null;
+        }
       }
-
-      return _parentNode;
     },
+
     animate: function (ele, opt, time, callback) {
       // 记录定时器的数量
       ele.timerLen = 0;
@@ -574,12 +582,19 @@ var utils = (function () {
 })();
 
 ;(function (doc) {
-  const {addEvent} = utils.domOperateTools;
+  const {
+          addEvent,
+          elemChildren,
+          getElemDocPosition,
+          getStyles,
+          closestParent
+        } = utils.domOperateTools;
+
   const EasyDatePicker = function (opt) {
     let defaultOpt = {
-      container: 'J_easy_date_picker',
-      defaultValue: '2020-07-29',
-      ranges: '',
+      container: '#J_date_select',
+      defaultValue: '',
+      ranges: [],
       // format: 'YYYY-MM-DD',
       supportRange: false,
       animate: false,
@@ -597,135 +612,286 @@ var utils = (function () {
       }
     }
 
-    this.pickerContent = doc.querySelector('.picker-content tbody');
-    this.tdList = this.pickerContent.getElementsByTagName('td');
+    this.dateSelector = doc.querySelector(this.container);
+    this.dateStart = null;
 
-    this.superPreBtn = doc.getElementsByClassName('J-super-pre-btn')[0];
-    this.preBtn = doc.getElementsByClassName('J-pre-btn')[0];
-    this.superNextBtn = doc.getElementsByClassName('J-super-next-btn')[0];
-    this.nextBtn = doc.getElementsByClassName('J-next-btn')[0];
+    this.pickerPanelWrap = null;
 
-    this.yearBtn = doc.getElementsByClassName('J-picker-year-btn')[0];
-    this.monthBtn = doc.getElementsByClassName('J-picker-month-btn')[0];
+    this.pickerContent = null;
+    this.tdList = null;
 
-    this.todyBtn = doc.getElementsByClassName('J-picker-today-btn')[0];
-    this.clearBtn = doc.getElementsByClassName('J-picker-today-btn')[0];
+    this.superPreBtn = null;
+    this.preBtn = null;
+    this.superNextBtn = null;
+    this.nextBtn = null;
 
-    this.curYear = 0;
-    this.curMonth = 0;
+    this.yearBtn = null;
+    this.monthBtn = null;
 
-    this.selectYear = 0;
-    this.selectMonth = 0;
-    this.selectDay = 0;
+    this.todyBtn = null;
+    this.clearBtn = null;
+
+    this.curYear = 0; // 当前 date panel 年份
+    this.curMonth = 0; // 当前 date panel 月份
+    this.centerYear = 0; // 记录年份范围选择的中心年份
+
+    this.selectYear = 0; // 当前选择的年份
+    this.selectMonth = 0; // 当前选中的月份
+    this.selectDay = 0; // 当前选中的日期
   };
 
   EasyDatePicker.prototype = {
     // 面板显示日期个数
     panelDateNum: 42,
+
+    // 面板显示年份的个数
+    panelYearNum: 15,
+
+    // 模板替换正则
+    tplReg: /{{(.*?)}}/gim,
+
     // 初始化
     init() {
       this.initOpt();
-      this.bindEvent();
-    },
-
-    // 事件绑定
-    bindEvent() {
-      const _self = this;
-
-      // 上一年
-      addEvent(_self.superPreBtn, 'click', () => {
-        _self.curYear--;
-        _self.toYearMonth(_self.curYear, _self.curMonth);
-      });
-
-      // 下一年
-      addEvent(_self.superNextBtn, 'click', () => {
-        _self.curYear++;
-        _self.toYearMonth(_self.curYear, _self.curMonth);
-      });
-
-      // 上一个月
-      addEvent(_self.preBtn, 'click', () => {
-        _self.curMonth--;
-        if (_self.curMonth === 0) {
-          _self.curMonth = 12;
-          _self.curYear--;
-        }
-        _self.toYearMonth(_self.curYear, _self.curMonth);
-      });
-
-      // 下一个月
-      addEvent(_self.nextBtn, 'click', () => {
-        _self.curMonth++;
-        if (_self.curMonth === 13) {
-          _self.curMonth = 1;
-          _self.curYear++;
-        }
-
-        _self.toYearMonth(_self.curYear, _self.curMonth);
-      });
-
-      // 选择日期
-      addEvent(_self.pickerContent, 'click', (e) => {
-        _self.selectDate(e);
-      });
-
-      // 选择今天
-      addEvent(_self.todyBtn, 'click', () => {
-        const todayDateObj = _self.generateNowDate();
-        _self.curYear = _self.selectYear = todayDateObj.year;
-        _self.curMonth = _self.selectMonth = todayDateObj.month;
-        _self.selectDay = todayDateObj.day;
-        _self.toYearMonth(todayDateObj.year, todayDateObj.month);
-
-      });
-    },
-
-    // 切换到某年某月
-    toYearMonth(toYear, toMonth) {
-      const _self = this;
-      let toDay = 0;
-      if (toYear === _self.selectYear && toMonth === _self.selectMonth) toDay = _self.selectDay;
-      _self.yearBtn.innerText = _self.curYear + '年';
-      _self.monthBtn.innerText = _self.curMonth + '月';
-      _self.removeDatePanel();
-      _self.generateDatePanel({
-        year: toYear,
-        month: toMonth,
-        day: toDay
-      });
+      this.initBindEvent();
     },
 
     // 配置 opt
     initOpt() {
       const _self = this;
       let dateObj = _self.strToDate(_self.defaultValue);
-      _self.curYear = _self.selectYear = dateObj.year;
-      _self.curMonth = _self.selectMonth = dateObj.month;
-      _self.selectDay = dateObj.day;
 
-      _self.generateDatePanel(dateObj);
+      if (dateObj.year) {
+        _self.curYear = _self.selectYear = dateObj.year;
+        _self.curMonth = _self.selectMonth = dateObj.month;
+        _self.selectDay = dateObj.day;
+        _self.renderDateSelect({
+          startDate: _self.defaultValue
+        });
+      } else {
+        _self.curYear = new Date().getFullYear();
+        _self.curMonth = new Date().getMonth() + 1;
+        _self.renderDateSelect({
+          startDate: '请选择日期'
+        });
+      }
     },
 
-    // 选择日期
+    // 渲染 date picker
+    renderDatePicker(dateObj, position) {
+      const _self = this;
+      // 初始化 date picker
+      _self.addDatePicker(_self.generateDatePicker(dateObj));
+
+      _self.pickerWrap = doc.getElementById('J_easy_date_picker');
+      _self.pickerPanelWrap = _self.pickerWrap.getElementsByClassName('J-picker-panel-container')[0];
+
+      _self.pickerWrap.style.left = position.left + 'px';
+      _self.pickerWrap.style.top = position.top + 'px';
+
+      _self.bindDatePanel();
+      _self.bindCancelFocus();
+    },
+
+    // 渲染 date select
+    renderDateSelect({startDate = '', endDate = ''}) {
+      const _self = this;
+
+      _self.dateSelector.innerHTML = '<span class="date-start J-date-start">' + startDate + '</span>';
+      _self.dateStart = _self.dateSelector.getElementsByClassName('J-date-start')[0];
+    },
+
+    // 初始事件绑定
+    initBindEvent() {
+      const _self = this;
+
+      _self.bindDateSelect();
+    },
+
+    // 绑定 date panel 事件
+    bindDatePanel() {
+      const _self = this;
+
+      _self.pickerContent = _self.pickerWrap.querySelector('.picker-content tbody');
+      _self.tdList = _self.pickerContent.getElementsByTagName('td');
+
+      _self.superPreBtn = _self.pickerWrap.getElementsByClassName('J-super-pre-btn')[0];
+      _self.preBtn = _self.pickerWrap.getElementsByClassName('J-pre-btn')[0];
+      _self.superNextBtn = _self.pickerWrap.getElementsByClassName('J-super-next-btn')[0];
+      _self.nextBtn = _self.pickerWrap.getElementsByClassName('J-next-btn')[0];
+
+      _self.yearBtn = _self.pickerWrap.getElementsByClassName('J-picker-year-btn')[0];
+      _self.monthBtn = _self.pickerWrap.getElementsByClassName('J-picker-month-btn')[0];
+
+      _self.todyBtn = _self.pickerWrap.getElementsByClassName('J-picker-today-btn')[0];
+      _self.clearBtn = _self.pickerWrap.getElementsByClassName('J-picker-clear-btn')[0];
+
+      // 上一年
+      addEvent(_self.superPreBtn, 'click', _self.datePreYear.bind(_self));
+
+      // 下一年
+      addEvent(_self.superNextBtn, 'click', _self.dateNextYear.bind(_self));
+
+      // 上一个月
+      addEvent(_self.preBtn, 'click', _self.eventPreMonth.bind(_self));
+
+      // 下一个月
+      addEvent(_self.nextBtn, 'click', _self.eventNextMonth.bind(_self));
+
+      // 选择日期
+      addEvent(_self.pickerContent, 'click', _self.selectDate.bind(_self));
+
+      // 选择今天
+      addEvent(_self.todyBtn, 'click', _self.selectToday.bind(_self));
+
+      // 选择年份
+      addEvent(_self.yearBtn, 'click', _self.changeYear.bind(_self));
+
+      // 选择月份
+      addEvent(_self.monthBtn, 'click', _self.changeMonth.bind(_self));
+
+      // 清除日期选择
+      addEvent(_self.clearBtn, 'click', _self.clearDate.bind(_self));
+    },
+
+    // 绑定 year panel 事件
+    bindYearPanel() {
+      const _self = this;
+
+      _self.pickerContent = _self.pickerWrap.querySelector('.picker-content tbody');
+      _self.superPreBtn = _self.pickerWrap.getElementsByClassName('J-super-pre-btn')[0];
+      _self.sectionYearBtn = _self.pickerWrap.getElementsByClassName('J-picker-section-btn')[0];
+      _self.superNextBtn = _self.pickerWrap.getElementsByClassName('J-super-next-btn')[0];
+
+      addEvent(_self.pickerContent, 'click', _self.eventSelectYear.bind(_self));
+      addEvent(_self.superPreBtn, 'click', _self.preRangeYear.bind(_self));
+      addEvent(_self.superNextBtn, 'click', _self.nextRangeYear.bind(_self));
+    },
+
+    // 绑定 month panel 事件
+    bindMonthPanel() {
+      const _self = this;
+
+      _self.pickerContent = _self.pickerWrap.querySelector('.picker-content tbody');
+      _self.superPreBtn = _self.pickerWrap.getElementsByClassName('J-super-pre-btn')[0];
+      _self.yearBtn = _self.pickerWrap.getElementsByClassName('J-picker-year-btn')[0];
+      _self.superNextBtn = _self.pickerWrap.getElementsByClassName('J-super-next-btn')[0];
+
+      addEvent(_self.pickerContent, 'click', _self.eventSelectMonth.bind(_self));
+      addEvent(_self.superPreBtn, 'click', _self.monthPreYear.bind(_self));
+      addEvent(_self.yearBtn, 'click', _self.changeYear.bind(_self));
+      addEvent(_self.superNextBtn, 'click', _self.monthNextYear.bind(_self));
+    },
+
+    // 绑定 date select 点击事件
+    bindDateSelect() {
+      const _self = this;
+      addEvent(_self.dateStart, 'click', (e) => {
+        e = e || window.event;
+        const tar       = e.target || e.srcElement,
+              parent    = tar.parentNode,
+              position  = getElemDocPosition(parent),
+              pHeight   = getStyles(parent, 'height'),
+              panelLeft = position.left,
+              panelTop  = position.top + pHeight + 3;
+
+        tar.classList.add('focus');
+        parent.classList.add('focus');
+
+        if (!_self.pickerWrap) {
+          _self.renderDatePicker({
+            year: _self.curYear,
+            month: _self.curMonth,
+            day: _self.selectDay
+          }, {
+            left: panelLeft,
+            top: panelTop
+          });
+        } else {
+          _self.pickerWrap.classList.remove('hidden');
+        }
+
+      });
+    },
+
+    // 取消 日期选择焦点 事件
+    bindCancelFocus() {
+      addEvent(doc, 'click', (e) => {
+        e = e || window.event;
+        const _self    = this,
+              tar      = e.target || e.srcElement,
+              isSelect = closestParent(tar, '#J_date_select'),
+              isPicker = closestParent(tar, '#J_easy_date_picker');
+        if (!(isPicker || isSelect)) {
+          _self.dateCancelFocus();
+        }
+      }, true);
+    },
+
+    // 日期取消焦点
+    dateCancelFocus() {
+      const _self = this;
+      _self.pickerWrap.classList.add('hidden');
+      _self.dateSelector.classList.remove('focus');
+      _self.dateStart.classList.remove('focus');
+      if (_self.selectYear) {
+        _self.dateStart.innerText = _self.dateToStr({
+          year: _self.selectYear,
+          month: _self.selectMonth,
+          day: _self.selectDay
+        });
+      } else {
+        _self.dateStart.innerText = '请选择日期';
+      }
+    },
+
+    // 日期 panel 上一年
+    datePreYear() {
+      const _self = this;
+      _self.curYear--;
+      _self.toYearMonth(_self.curYear, _self.curMonth);
+    },
+
+    // 日期 panel 下一年
+    dateNextYear() {
+      const _self = this;
+      _self.curYear++;
+      _self.toYearMonth(_self.curYear, _self.curMonth);
+    },
+
+    // 上个月事件
+    eventPreMonth() {
+      const _self = this;
+      _self.curMonth--;
+      if (_self.curMonth === 0) {
+        _self.curMonth = 12;
+        _self.curYear--;
+      }
+      _self.toYearMonth(_self.curYear, _self.curMonth);
+    },
+
+    // 下个月事件
+    eventNextMonth() {
+      const _self = this;
+      _self.curMonth++;
+      if (_self.curMonth === 13) {
+        _self.curMonth = 1;
+        _self.curYear++;
+      }
+      _self.toYearMonth(_self.curYear, _self.curMonth);
+    },
+
+    // 选择日期事件
     selectDate(e) {
       e = e || window.event;
-      const _self      = this,
-            tar        = e.target || e.srcElement,
-            tagName    = tar.tagName.toLowerCase(),
-            className  = tar.className.toLowerCase(),
-            isTd       = tagName === 'td',
-            isInnerDiv = className.includes('picker-cell-inner');
+      const _self  = this,
+            tar    = e.target || e.srcElement,
+            tdElem = _self.getTdElement(tar);
 
-      let tdElem  = tar,
-          dateStr = '',
+      let dateStr = '',
           dateObj = {};
 
-      if (isInnerDiv) {
-        tdElem = tar.parentNode;
-      }
-
-      if (isTd || isInnerDiv) {
+      if (tdElem) {
         dateStr = tdElem.getAttribute('title');
         dateObj = _self.strToDate(dateStr);
         _self.selectYear = dateObj.year;
@@ -741,7 +907,181 @@ var utils = (function () {
           _self.curMonth = _self.selectMonth;
           _self.toYearMonth(_self.curYear, _self.curMonth);
         }
+
+        _self.dateCancelFocus();
       }
+    },
+
+    // 选择年份事件
+    eventSelectYear(e) {
+      e = e || window.event;
+      const _self  = this,
+            tar    = e.target || e.srcElement,
+            tdElem = _self.getTdElement(tar);
+
+      let dateStr = '';
+
+      if (tdElem) {
+        let toDay = 0;
+        dateStr = tdElem.getAttribute('title');
+        _self.curYear = parseInt(dateStr);
+        if (_self.curYear === _self.selectYear && _self.curMonth === _self.selectMonth) toDay = _self.selectDay;
+        _self.removePanel();
+        _self.addPanel(_self.generateDatePanel({
+          year: _self.curYear,
+          month: _self.curMonth,
+          day: toDay
+        }));
+
+        _self.bindDatePanel();
+      }
+    },
+
+    // 选择月份事件
+    eventSelectMonth(e) {
+      e = e || window.event;
+      const _self  = this,
+            tar    = e.target || e.srcElement,
+            tdElem = _self.getTdElement(tar);
+
+      let dateStr = '',
+          dateObj = {};
+
+      if (tdElem) {
+        let toDay = 0;
+        dateStr = tdElem.getAttribute('title');
+        dateObj = _self.strToDate(dateStr);
+        _self.curYear = dateObj.year;
+        _self.curMonth = dateObj.month;
+        if (_self.curYear === _self.selectYear && _self.curMonth === _self.selectMonth) toDay = _self.selectDay;
+        _self.removePanel();
+        _self.addPanel(_self.generateDatePanel({
+          year: _self.curYear,
+          month: _self.curMonth,
+          day: toDay
+        }));
+
+        _self.bindDatePanel();
+      }
+    },
+
+    // 选择今天事件
+    selectToday() {
+      const _self = this;
+      const todayDateObj = _self.generateNowDate();
+      _self.curYear = _self.selectYear = todayDateObj.year;
+      _self.curMonth = _self.selectMonth = todayDateObj.month;
+      _self.selectDay = todayDateObj.day;
+      _self.toYearMonth(todayDateObj.year, todayDateObj.month);
+      _self.onChange(todayDateObj, _self.dateToStr(todayDateObj));
+      _self.dateCancelFocus();
+    },
+
+    // 清除日期选择
+    clearDate() {
+      const _self = this;
+      _self.selectYear = 0;
+      _self.selectMonth = 0;
+      _self.selectDay = 0;
+      _self.dateCancelFocus();
+      _self.toYearMonth(_self.curYear, _self.curMonth);
+    },
+
+    // 触发选择年份
+    changeYear() {
+      const _self = this,
+            dif   = Math.floor(_self.panelYearNum / 2);
+
+      _self.removePanel();
+      _self.addPanel(_self.generateYearPanel({
+        startYear: _self.curYear - dif,
+        endYear: _self.curYear + dif,
+        selectYear: _self.selectYear
+      }));
+
+      _self.centerYear = _self.curYear;
+      _self.bindYearPanel();
+    },
+
+    // 向前一个年份范围
+    preRangeYear() {
+      const _self     = this,
+            dif       = Math.floor(_self.panelYearNum / 2),
+            startYear = _self.centerYear - dif - _self.panelYearNum,
+            endYear   = _self.centerYear - dif - 1;
+      _self.centerYear -= _self.panelYearNum;
+      _self.sectionYearBtn.innerText = startYear + '-' + endYear;
+      _self.removeContent();
+      _self.addContent(_self.generateYearContent(
+        {startYear, endYear, selectYear: _self.selectYear}
+      ));
+    },
+
+    // 向后一个年份范围
+    nextRangeYear() {
+      const _self     = this,
+            dif       = Math.floor(_self.panelYearNum / 2),
+            startYear = _self.centerYear + dif + 1,
+            endYear   = _self.centerYear + dif + _self.panelYearNum;
+      _self.centerYear += _self.panelYearNum;
+      _self.sectionYearBtn.innerText = startYear + '-' + endYear;
+      _self.removeContent();
+      _self.addContent(_self.generateYearContent(
+        {startYear, endYear, selectYear: _self.selectYear}
+      ));
+    },
+
+    // 触发选择月份
+    changeMonth() {
+      const _self = this;
+
+      _self.removePanel();
+      _self.addPanel(_self.generateMonthPanel({
+        year: _self.curYear,
+        selectMonth: (_self.curYear === _self.selectYear) ? _self.selectMonth : 0
+      }));
+
+      _self.bindMonthPanel();
+    },
+
+    // 月份 panel 上一年
+    monthPreYear() {
+      const _self = this;
+      _self.curYear--;
+      _self.yearBtn.innerText = _self.curYear + '年';
+      _self.removeContent();
+      _self.addContent(_self.generateMonthContent({
+        year: _self.curYear,
+        selectMonth: (_self.curYear === _self.selectYear) ? _self.selectMonth : 0
+      }));
+    },
+
+    // 月份 panel 下一年
+    monthNextYear() {
+      const _self = this;
+      _self.curYear++;
+      _self.yearBtn.innerText = _self.curYear + '年';
+      _self.removeContent();
+      _self.addContent(_self.generateMonthContent({
+        year: _self.curYear,
+        selectMonth: (_self.curYear === _self.selectYear) ? _self.selectMonth : 0
+      }));
+    },
+
+    // 切换到某年某月 - 切换 日期 content
+    toYearMonth(toYear, toMonth) {
+      const _self = this;
+      let toDay = 0;
+      if (toYear === _self.selectYear && toMonth === _self.selectMonth) toDay = _self.selectDay;
+      _self.yearBtn.innerText = _self.curYear + '年';
+      _self.monthBtn.innerText = _self.curMonth + '月';
+      _self.removeContent();
+      _self.addContent(
+        _self.generateDateContent({
+          year: toYear,
+          month: toMonth,
+          day: toDay
+        }));
     },
 
     // 激活当前选中日期
@@ -754,7 +1094,23 @@ var utils = (function () {
     },
 
     // 生成日期 panel
-    generateDatePanel({year, month, day = 0}) {
+    generateDatePanel({year, month, day}) {
+      const _self = this;
+
+      let datePaneTpl = _self.getDatePanelTpl(),
+          dataObj     = {};
+
+      dataObj = {
+        year,
+        month,
+        trList: _self.generateDateContent({year, month, day})
+      };
+
+      return datePaneTpl.replace(_self.tplReg, (node, key) => dataObj[key]);
+    },
+
+    // 生成日期 content
+    generateDateContent({year, month, day}) {
       const _self         = this,
             date          = new Date(`${year}-${month}-01`),
             weekForOne    = date.getDay(), // 1号是星期几
@@ -765,95 +1121,403 @@ var utils = (function () {
             nextYear      = nextMonth === 1 ? year + 1 : year,// 下个月属于哪年
             preMonthDays  = new Date(preYear, preMonth, 0).getDate(); // 上个月天数
 
-      let frag      = doc.createDocumentFragment(),
+      let tempDiv   = doc.createElement('div'),
           tr        = doc.createElement('tr'),
-          td        = null,
+          td        = '',
           tdNum     = 0,
           isWeekend = false;
 
       for (let i = weekForOne; i > 0; i--) {
         isWeekend = (tdNum % 7 === 0 || (tdNum + 1) % 7 === 0);
-        td = _self.generateTd(
-          preYear,
-          preMonth,
-          preMonthDays - i + 1,
-          true,
-          false,
-          isWeekend
-        );
-        tr.appendChild(td);
+        td = _self.generateDateTd({
+          year: preYear,
+          month: preMonth,
+          day: preMonthDays - i + 1,
+          isOut: true,
+          isSelected: false,
+          isWeekend: isWeekend
+        });
+        tr.innerHTML += td;
         tdNum++;
       }
 
       for (let i = 1; i <= thisMonthDays; i++) {
         isWeekend = (tdNum % 7 === 0 || (tdNum + 1) % 7 === 0);
-        td = _self.generateTd(
-          year,
-          month,
-          i,
-          false,
-          (day === i),
-          isWeekend);
+        td = _self.generateDateTd({
+          year: year,
+          month: month,
+          day: i,
+          isOut: false,
+          isSelected: (day === i),
+          isWeekend: isWeekend
+        });
         if (tdNum % 7 === 0 && tdNum !== 0) {
-          frag.appendChild(tr);
+          tempDiv.appendChild(tr);
           tr = doc.createElement('tr');
         }
-        tr.appendChild(td);
+        tr.innerHTML += td;
         tdNum++;
       }
 
       for (let i = 1; i <= _self.panelDateNum - weekForOne - thisMonthDays; i++) {
         isWeekend = (tdNum % 7 === 0 || (tdNum + 1) % 7 === 0);
-        td = _self.generateTd(
-          nextYear,
-          nextMonth,
-          i,
-          true,
-          false,
-          isWeekend);
+        td = _self.generateDateTd({
+          year: nextYear,
+          month: nextMonth,
+          day: i,
+          isOut: true,
+          isSelected: false,
+          isWeekend: isWeekend
+        });
         if (tdNum % 7 === 0) {
-          frag.appendChild(tr);
+          tempDiv.appendChild(tr);
           tr = doc.createElement('tr');
         }
-        tr.appendChild(td);
+        tr.innerHTML += td;
         tdNum++;
       }
 
-      frag.appendChild(tr);
+      tempDiv.appendChild(tr);
 
-      _self.pickerContent.appendChild(frag);
+      return tempDiv.innerHTML;
     },
 
-    // 删除日期 panel
-    removeDatePanel() {
+    // 生成日期 td
+    generateDateTd({year, month, day, isOut, isSelected, isWeekend}) {
+      let _self          = this,
+          tdClassName    = 'picker-cell',
+          innerClassName = 'picker-cell-inner',
+          tdTpl          = _self.getDateTdTpl(),
+          dataObj        = {};
+      tdClassName += isOut ? ' picker-out-view' : '';
+      tdClassName += isSelected ? ' picker-cell-selected' : '';
+      innerClassName += isWeekend ? ' weekend' : '';
+      dataObj = {
+        tdClassName,
+        innerClassName,
+        title: _self.dateToStr({year, month, day}),
+        day,
+      };
+
+      return tdTpl.replace(_self.tplReg, (node, key) => {
+        return dataObj[key];
+      });
+    },
+
+    // 生成年份 panel
+    generateYearPanel({startYear, endYear, selectYear}) {
+      const _self = this;
+
+      let datePaneTpl = _self.getYearPanelTpl(),
+          dataObj     = {};
+
+      dataObj = {
+        yearSection: startYear + '-' + endYear,
+        trList: _self.generateYearContent({startYear, endYear, selectYear})
+      };
+
+      return datePaneTpl.replace(_self.tplReg, (node, key) => dataObj[key]);
+    },
+
+    // 生成年份 content
+    generateYearContent({startYear, endYear, selectYear}) {
+      const _self = this;
+
+      let tempDiv = doc.createElement('div'),
+          tr      = doc.createElement('tr'),
+          td      = '',
+          tdNum   = 0;
+
+      for (let i = startYear; i <= endYear; i++) {
+        td = _self.generateYearTd({
+          year: i,
+          isSelected: (selectYear === i),
+        });
+        if (tdNum % 3 === 0 && tdNum !== 0) {
+          tempDiv.appendChild(tr);
+          tr = doc.createElement('tr');
+        }
+        tr.innerHTML += td;
+        tdNum++;
+      }
+
+      tempDiv.appendChild(tr);
+
+      return tempDiv.innerHTML;
+    },
+
+    // 生成年份 td
+    generateYearTd({year, isSelected}) {
+      let _self          = this,
+          tdClassName    = 'picker-cell',
+          innerClassName = 'picker-cell-inner',
+          tdTpl          = _self.getYearTdTpl(),
+          dataObj        = {};
+      tdClassName += isSelected ? ' picker-cell-selected' : '';
+      dataObj = {
+        tdClassName,
+        innerClassName,
+        year,
+        title: year
+      };
+
+      return tdTpl.replace(_self.tplReg, (node, key) => {
+        return dataObj[key];
+      });
+    },
+
+    // 生成月份 panel
+    generateMonthPanel({year, selectMonth}) {
+      const _self = this;
+
+      let datePaneTpl = _self.getMonthPanelTpl(),
+          dataObj     = {};
+
+      dataObj = {
+        year,
+        trList: _self.generateMonthContent({year, selectMonth})
+      };
+
+      return datePaneTpl.replace(_self.tplReg, (node, key) => dataObj[key]);
+    },
+
+    // 生成月份 content
+    generateMonthContent({year, selectMonth}) {
+      const _self = this;
+
+      let tempDiv = doc.createElement('div'),
+          tr      = doc.createElement('tr'),
+          td      = '',
+          tdNum   = 0;
+
+      for (let i = 1; i <= 12; i++) {
+        td = _self.generateMonthTd({
+          year: year,
+          month: i,
+          isSelected: (selectMonth === i),
+        });
+        if (tdNum % 3 === 0 && tdNum !== 0) {
+          tempDiv.appendChild(tr);
+          tr = doc.createElement('tr');
+        }
+        tr.innerHTML += td;
+        tdNum++;
+      }
+
+      tempDiv.appendChild(tr);
+
+      return tempDiv.innerHTML;
+    },
+
+    // 生成月份 td
+    generateMonthTd({year, month, isSelected}) {
+      let _self          = this,
+          tdClassName    = 'picker-cell',
+          innerClassName = 'picker-cell-inner',
+          tdTpl          = _self.getMonthTdTpl(),
+          dataObj        = {};
+      tdClassName += isSelected ? ' picker-cell-selected' : '';
+      dataObj = {
+        tdClassName,
+        innerClassName,
+        month,
+        title: year + '-' + month
+      };
+
+      return tdTpl.replace(_self.tplReg, (node, key) => {
+        return dataObj[key];
+      });
+    },
+
+    // 生成 date picker
+    generateDatePicker(dateObj) {
+      const _self = this;
+
+      let pickerTpl = _self.getDatePickerTpl(),
+          dataObj   = {};
+
+      dataObj = {
+        children: _self.generateDatePanel(dateObj),
+      };
+
+      return pickerTpl.replace(_self.tplReg, (node, key) => dataObj[key]);
+    },
+
+    /******************************************
+     * 添加 content
+     */
+    addContent(content) {
+      const _self = this;
+      _self.pickerContent.innerHTML = content;
+    },
+
+    // 删除 content
+    removeContent() {
       const _self = this;
       _self.pickerContent.innerHTML = '';
     },
 
-    // 日期td element 生成函数
-    generateTd(year, month, day, isOut, isSelected, isWeekend) {
-      let _self     = this,
-          td        = doc.createElement('td'),
-          inner     = doc.createElement('div'),
-          className = 'picker-cell';
-      className += isOut ? ' picker-out-view' : '';
-      className += isSelected ? ' picker-cell-selected' : '';
-      inner.className = 'picker-cell-inner';
-      inner.className += isWeekend ? ' weekend' : '';
-      inner.innerText = day;
-      td.className = className;
-      td.setAttribute('title', _self.dateToStr({year, month, day}));
-      td.appendChild(inner);
-      return td;
+    // 添加 panel
+    addPanel(panel) {
+      const _self = this;
+      _self.pickerPanelWrap.innerHTML = panel;
     },
 
-    // 时期字符串转换为日期对象
+    // 删除 panel
+    removePanel() {
+      const _self = this;
+      _self.pickerPanelWrap.innerHTML = '';
+    },
+
+    // 添加 date picker 组件到document.body
+    addDatePicker(picker) {
+      let div      = doc.createElement('div'),
+          children = null;
+      if (typeof picker == 'string') {
+        div.innerHTML = picker;
+        children = elemChildren(div);
+        doc.body.appendChild(div.children[0]);
+      }
+    },
+
+    /******************************************
+     * 点击事件委托，点击到的元素可能不是td，这里需要获取到真的td元素
+     * @param tar 目标元素
+     * @return element | null
+     */
+    getTdElement(tar) {
+      const tagName    = tar.tagName.toLowerCase(),
+            className  = tar.className.toLowerCase(),
+            isTd       = tagName === 'td',
+            isInnerDiv = className.includes('picker-cell-inner');
+
+      let tdElem = tar;
+
+      if (isInnerDiv) {
+        tdElem = tar.parentNode;
+      }
+
+      if (isTd || isInnerDiv) {
+        return tdElem;
+      } else {
+        return null;
+      }
+    },
+
+    /******************************************
+     * 获取日期panel模板
+     */
+    getDatePanelTpl() {
+      // year month trList
+      return '<div class="date-picker-panel">\
+                 <div class="picker-header">\
+                    <button class="super-pre-btn J-super-pre-btn"></button>\
+                    <button class="pre-btn J-pre-btn"></button>\
+                    <div class="header-view">\
+                      <button class="picker-year-btn J-picker-year-btn">{{year}}年</button>\
+                      <button class="picker-month-btn J-picker-month-btn">{{month}}月</button>\
+                    </div>\
+                    <button class="next-btn J-next-btn"></button>\
+                    <button class="super-next-btn J-super-next-btn"></button>\
+                 </div>\
+                 <div class="picker-body">\
+                    <table class="picker-content">\
+                      <thead>\
+                      <tr>\
+                        <th>日</th>\
+                        <th>一</th>\
+                        <th>二</th>\
+                        <th>三</th>\
+                        <th>四</th>\
+                        <th>五</th>\
+                        <th>六</th>\
+                      </tr>\
+                      </thead>\
+                      <tbody>{{trList}}</tbody>\
+                    </table>\
+                 </div>\
+                 <div class="picker-footer">\
+                   <button class="picker-today-btn J-picker-today-btn">今天</button>\
+                   <button class="picker-clear-btn J-picker-clear-btn">清除</button>\
+                 </div>\
+              </div>';
+    },
+
+    // 获取日期td模板
+    getDateTdTpl() {
+      return '<td title="{{title}}" class="{{tdClassName}}">\
+                <div class="{{innerClassName}}">{{day}}</div>\
+              </td>';
+    },
+
+    // 获取年份panel模板
+    getYearPanelTpl() {
+      // yearSection trList
+      return '<div class="year-picker-panel">\
+                <div class="picker-header">\
+                  <button class="super-pre-btn J-super-pre-btn"></button>\
+                  <div class="header-view">\
+                    <button class="picker-section-btn J-picker-section-btn">{{yearSection}}</button>\
+                  </div>\
+                  <button class="super-next-btn J-super-next-btn"></button>\
+                </div>\
+                <div class="picker-body">\
+                  <table class="picker-content">\
+                    <tbody>{{trList}}</tbody>\
+                  </table>\
+                </div>\
+              </div>';
+    },
+
+    // 获取月份panel模板
+    getMonthPanelTpl() {
+      // year trList
+      return '<div class="month-picker-panel">\
+                <div class="picker-header">\
+                  <button class="super-pre-btn J-super-pre-btn"></button>\
+                  <div class="header-view">\
+                    <button class="picker-year-btn J-picker-year-btn">{{year}}年</button>\
+                  </div>\
+                  <button class="super-next-btn J-super-next-btn"></button>\
+                </div>\
+                <div class="picker-body">\
+                  <table class="picker-content">\
+                    <tbody>{{trList}}</tbody>\
+                  </table>\
+                </div>\
+              </div>';
+    },
+
+    // 获取年份td模板
+    getYearTdTpl() {
+      return '<td title="{{title}}" class="{{tdClassName}}">\
+                <div class="{{innerClassName}}">{{year}}</div>\
+              </td>';
+    },
+
+    // 获取月份td模板
+    getMonthTdTpl() {
+      return '<td title="{{title}}" class="{{tdClassName}}">\
+                <div class="{{innerClassName}}">{{month}}月</div>\
+              </td>';
+    },
+
+    // 获取 date picker 外层模板
+    getDatePickerTpl() {
+      return '<div class="easy-date-picker" id="J_easy_date_picker">\
+                <div class="picker-panel-container J-picker-panel-container">{{children}}</div>\
+              </div>';
+    },
+
+    /******************************************
+     * 时期字符串转换为日期对象
+     */
     strToDate(str, format) {
       let dateArr = str.split('-');
       return {
-        year: parseInt(dateArr[0]),
-        month: parseInt(dateArr[1].replace(/^0/, '')),
-        day: parseInt(dateArr[2].replace(/^0/, ''))
+        year: dateArr[0] && parseInt(dateArr[0]),
+        month: dateArr[1] && parseInt(dateArr[1].replace(/^0/, '')),
+        day: dateArr[2] && parseInt(dateArr[2].replace(/^0/, ''))
       };
     },
 
