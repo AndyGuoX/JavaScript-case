@@ -41,6 +41,8 @@ button {
 
 .easy-date-picker {
   position: absolute;
+  top: 0;
+  left: 0;
   z-index: 99;
   background-color: #fff;
   border-radius: 2px;
@@ -328,7 +330,7 @@ button {
   justify-content: center;
   align-items: center;
   flex: 1;
-  border-bottom: 1px solid transparent;
+  border-bottom: 2px solid transparent;
   transition: .3s;
 }
 
@@ -338,10 +340,10 @@ button {
 
 }
 
-.easy-date-select .date-start:hover,
-.easy-date-select .date-end:hover {
-  border-bottom-color: #40a9ff;
-}
+/*.easy-date-select .date-start:hover,*/
+/*.easy-date-select .date-end:hover {*/
+/*  border-bottom-color: #40a9ff;*/
+/*}*/
 
 .easy-date-select .date-end::before {
   content: "-";

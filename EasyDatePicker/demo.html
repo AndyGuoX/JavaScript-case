@@ -6,13 +6,15 @@
   <link rel="stylesheet" href="easy-date-picker.css">
   <style>
     .user-data-wrap_single {
+      display: inline-block;
       width: 145px;
-      margin: 100px auto;
+      margin: 100px;
     }
 
     .user-data-wrap_range {
+      display: inline-block;
       width: 265px;
-      margin: 100px auto;
+      margin: 100px;
     }
   </style>
 </head>
@@ -30,8 +32,8 @@
 <script>
   const datePickerSingle = new EasyDatePicker({
     container: '#J_date_select_single',
-    defaultValue: '2020-01-01', // 初试日期
-    ranges: ['2015-01-01', '2024-12-31'], // 可选择日期范围
+    // defaultValue: '2020-01-01', // 初始日期
+    // ranges: ['2015-01-01', '2024-12-31'], // 可选择日期范围
     animate: false, // 是否支持日期切换动画 - 目前只支持淡入淡出
     animateTime: 200, // 日期切换动画时间
     supportRange: false,
@@ -42,8 +44,8 @@
 
   const datePickerRange = new EasyDatePicker({
     container: '#J_date_select_range',
-    defaultValue: '2020-01-01', // 初试日期
-    ranges: ['2015-01-01', '2024-12-31'], // 可选择日期范围
+    // defaultValue: ['2020-01-01', '2020-03-01'], // 初始日期
+    // ranges: ['2015-01-01', '2026-12-31'], // 可选择日期范围
     animate: false, // 是否支持日期切换动画 - 目前只支持淡入淡出
     animateTime: 200, // 日期切换动画时间
     supportRange: true,
@@ -56,8 +58,8 @@
     console.log(value, str);
   }
 
-  function dateChangeRange(value, str) {
-    console.log(value, str);
+  function dateChangeRange(value) {
+    console.log(value);
   }
 </script>
 </body>

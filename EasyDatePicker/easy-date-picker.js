@@ -206,7 +206,7 @@ var utils = (function () {
      * @returns {[]}
      */
     elemChildren: function (element) {
-      if (element.children) return element.children;
+      if (element.children) return [].slice.call(element.children);
       var arr   = [],
           nodes = element.childNodes;
 
@@ -610,7 +610,7 @@ var utils = (function () {
       container: '',
       defaultValue: '',
       // format: 'YYYY-MM-DD',
-      ranges: ['1900-01-01', '2099-12-31'],
+      ranges: '',
       supportRange: false,
       animate: false,
       animateTime: 200,
@@ -618,8 +618,6 @@ var utils = (function () {
     };
 
     opt = Object.assign(defaultOpt, opt);
-
-    if (typeof (opt.container) !== 'string') throw new Error('The parameter container expects a string');
 
     // 初始化配置参数
     for (let key in opt) {
@@ -648,7 +646,7 @@ var utils = (function () {
     this.todyBtn = null;
     this.clearBtn = null;
 
-    // 数据记录
+    // 单选
     this.curYear = 0; // 当前 date panel 年份
     this.curMonth = 0; // 当前 date panel 月份
     this.centerYear = 0; // 记录年份范围选择的中心年份
@@ -657,8 +655,15 @@ var utils = (function () {
     this.selectMonth = 0; // 当前选中的月份
     this.selectDay = 0; // 当前选中的日期
 
-    this.minDate = this.ranges[0];
-    this.maxDate = this.ranges[1];
+    // 范围
+    this.selectRnageValue = []; // 选中的范围
+    this.bufferRangeValue = []; // 缓冲选中的范围
+    this.endSelectYear = 0;
+    this.endSelectMonth = 0;
+    this.endSelectDay = 0;
+    this.tempRanges = this.ranges;
+    this.isStart = true; // 记录是否在选择开始日期状态
+    this.isDatePanel = true; // 记录是否在日期面板
   };
 
   EasyDatePicker.prototype = {
@@ -676,67 +681,103 @@ var utils = (function () {
 
     // 初始化
     init() {
-      this.initSelect();
-      this.bindDateSelect();
+      if (this.supportRange) {
+        this.initRangeSelect();
+        this.bindStartSelect();
+        this.bindEndSelect();
+      } else {
+        this.initSingleSelect();
+        this.bindSingleSelect();
+      }
     },
 
-    // 初始化select
-    initSelect() {
+    // 初始化单选 select
+    initSingleSelect() {
       const _self = this;
       let dateObj;
       // 判断是否有默认值
       if (_self.defaultValue) {
         dateObj = _self.strToDate(_self.defaultValue);
-        if (_self.dateInRange(dateObj, _self.ranges)) {
-          // 且默认值在允许选择的范围
-          _self.curYear = _self.selectYear = dateObj.year;
-          _self.curMonth = _self.selectMonth = dateObj.month;
-          _self.selectDay = dateObj.day;
-          _self.renderDateSelect({startDate: _self.defaultValue});
-        } else {
-          dateObj = _self.strToDate(_self.minDate);
-          _self.curYear = dateObj.year;
-          _self.curMonth = dateObj.month;
-          _self.renderDateSelect({
-            startDate: '请选择日期'
-          });
-        }
+        _self.curYear = _self.selectYear = dateObj.year;
+        _self.curMonth = _self.selectMonth = dateObj.month;
+        _self.selectDay = dateObj.day;
+        _self.renderSingleSelect(_self.defaultValue);
       } else {
         // 没有默认值的情况下判断今天是否在范围内
         dateObj = _self.generateNowDate();
-        if (!_self.dateInRange(dateObj, _self.ranges)) {
-          dateObj = _self.strToDate(_self.minDate);
+        if (_self.ranges && !_self.dateInRange(dateObj, _self.ranges)) {
+          dateObj = _self.strToDate(_self.ranges[0]);
         }
         _self.curYear = dateObj.year;
         _self.curMonth = dateObj.month;
-        _self.renderDateSelect({
-          startDate: '请选择日期'
+        _self.renderSingleSelect('请选择日期');
+      }
+    },
+
+    // 初始化范围 select
+    initRangeSelect() {
+      const _self = this;
+      let dateObj;
+      // 判断是否有默认值
+      if (_self.defaultValue) {
+        _self.selectRnageValue = _self.defaultValue;
+        dateObj = _self.strToDate(_self.defaultValue[0]);
+        _self.selectYear = dateObj.year;
+        _self.selectMonth = dateObj.month;
+        _self.selectDay = dateObj.day;
+        dateObj = _self.strToDate(_self.defaultValue[1]);
+        _self.endSelectYear = dateObj.year;
+        _self.endSelectMonth = dateObj.month;
+        _self.endSelectDay = dateObj.day;
+        _self.renderRangeSelect(
+          {
+            startDate: _self.selectRnageValue[0],
+            endDate: _self.selectRnageValue[1]
+          }
+        );
+      } else {
+        // 没有默认值的情况下判断今天是否在范围内
+        dateObj = _self.generateNowDate();
+        if (_self.ranges && !_self.dateInRange(dateObj, _self.ranges)) {
+          dateObj = _self.strToDate(_self.ranges[0]);
+        }
+        _self.curYear = dateObj.year;
+        _self.curMonth = dateObj.month;
+        _self.renderRangeSelect({
+          startDate: '请选择开始日期',
+          endDate: '请选择结束日期'
         });
       }
     },
 
     // 渲染 date picker
-    renderDatePicker(dateObj, position) {
+    renderDatePicker(dateObj) {
       const _self = this;
       // 初始化 date picker
 
       _self.pickerWrap = _self.addDatePicker(_self.generateDatePicker(dateObj));
       _self.pickerPanelWrap = _self.pickerWrap.getElementsByClassName('J-picker-panel-container')[0];
 
-      _self.pickerWrap.style.left = position.left + 'px';
-
-      _self.pickerWrap.style.top = position.top + _self.animateDis + 'px';
-
       _self.bindDatePanel();
       _self.bindCancelFocus();
     },
 
-    // 渲染 date select
-    renderDateSelect({startDate = '', endDate = ''}) {
+    // 渲染 单选 date select
+    renderSingleSelect(date) {
       const _self = this;
 
-      _self.dateSelector.innerHTML = '<span class="date-start J-date-start">' + startDate + '</span>';
+      _self.dateSelector.innerHTML = '<span class="date-start J-date-start">' + date + '</span>';
       _self.dateStart = _self.dateSelector.getElementsByClassName('J-date-start')[0];
+    },
+
+    // 渲染 范围 date select
+    renderRangeSelect({startDate = '', endDate = ''}) {
+      const _self = this;
+
+      _self.dateSelector.innerHTML = '<span class="date-start J-date-start">' + startDate + '</span>\
+                                      <span class="date-end J-date-end">' + endDate + '</span>';
+      _self.dateStart = _self.dateSelector.getElementsByClassName('J-date-start')[0];
+      _self.dateEnd = _self.dateSelector.getElementsByClassName('J-date-end')[0];
     },
 
     // 绑定 date panel 事件
@@ -754,8 +795,13 @@ var utils = (function () {
       _self.yearBtn = _self.pickerWrap.getElementsByClassName('J-picker-year-btn')[0];
       _self.monthBtn = _self.pickerWrap.getElementsByClassName('J-picker-month-btn')[0];
 
+
       _self.todyBtn = _self.pickerWrap.getElementsByClassName('J-picker-today-btn')[0];
       _self.clearBtn = _self.pickerWrap.getElementsByClassName('J-picker-clear-btn')[0];
+
+      if (_self.supportRange) {
+        _self.todyBtn.style.display = 'none';
+      }
 
       // 上一年
       addEvent(_self.superPreBtn, 'click', _self.datePreYear.bind(_self));
@@ -770,10 +816,16 @@ var utils = (function () {
       addEvent(_self.nextBtn, 'click', _self.eventNextMonth.bind(_self));
 
       // 选择日期
-      addEvent(_self.pickerBody, 'click', _self.selectDate.bind(_self));
+      if (_self.supportRange) {
+        addEvent(_self.pickerBody, 'click', _self.selectRangeDate.bind(_self));
+      } else {
+        addEvent(_self.pickerBody, 'click', _self.selectDate.bind(_self));
+      }
 
       // 选择今天
-      addEvent(_self.todyBtn, 'click', _self.selectToday.bind(_self));
+      if (!_self.supportRange) {
+        addEvent(_self.todyBtn, 'click', _self.selectToday.bind(_self));
+      }
 
       // 选择年份
       addEvent(_self.yearBtn, 'click', _self.changeYear.bind(_self));
@@ -782,7 +834,11 @@ var utils = (function () {
       addEvent(_self.monthBtn, 'click', _self.changeMonth.bind(_self));
 
       // 清除日期选择
-      addEvent(_self.clearBtn, 'click', _self.clearDate.bind(_self));
+      if (_self.supportRange) {
+        addEvent(_self.clearBtn, 'click', _self.clearRangeDate.bind(_self));
+      } else {
+        addEvent(_self.clearBtn, 'click', _self.clearSingleDate.bind(_self));
+      }
     },
 
     // 绑定 year panel 事件
@@ -814,45 +870,92 @@ var utils = (function () {
       addEvent(_self.superNextBtn, 'click', _self.monthNextYear.bind(_self));
     },
 
-    // 绑定 date select 点击事件
-    bindDateSelect() {
+    bindSingleSelect() {
       const _self = this;
       addEvent(_self.dateStart, 'click', (e) => {
         e = e || window.event;
-        const tar       = e.target || e.srcElement,
-              parent    = tar.parentNode,
-              position  = getElemDocPosition(parent),
-              pHeight   = getStyles(parent, 'height'),
-              panelLeft = position.left,
-              panelTop  = position.top + pHeight + 3;
-
-        tar.classList.add('focus');
-        parent.classList.add('focus');
 
         if (!_self.pickerWrap) {
           _self.renderDatePicker({
             year: _self.curYear,
             month: _self.curMonth,
             day: _self.selectDay
-          }, {
-            left: panelLeft,
-            top: panelTop
           });
-          animate(_self.pickerWrap, {
-            top: panelTop,
-            opacity: 1
-          }, 300);
+        }
+
+        _self.showDatePicker(e);
+      });
+    },
+
+    // 绑定 start date select 点击事件
+    bindStartSelect() {
+      const _self = this;
+      addEvent(_self.dateStart, 'click', (e) => {
+        e = e || window.event;
+
+        _self.isStart = true;
+
+        let year, month, day;
+
+        if (_self.selectRnageValue[0] && _self.selectRnageValue[1]) {
+          // 有选中值
+          year = _self.curYear = _self.selectYear;
+          month = _self.curMonth = _self.selectMonth;
         } else {
-          if (_self.pickerWrap.className.includes('hidden')) {
-            _self.pickerWrap.classList.remove('hidden');
-            _self.pickerWrap.style.left = panelLeft + 'px';
-            _self.pickerWrap.style.top = panelTop + _self.animateDis + 'px';
-            animate(_self.pickerWrap, {
-              top: panelTop,
-              opacity: 1
-            }, 300);
+          year = _self.curYear;
+          month = _self.curMonth;
+        }
+        day = _self.selectDay;
+        if (!_self.pickerWrap) {
+          _self.renderDatePicker({year, month, day});
+        } else {
+          if (_self.isDatePanel) {
+            _self.toYearMonth(
+              {
+                toYear: year,
+                toMonth: month
+              }
+            );
           }
         }
+
+        _self.showDatePicker(e);
+      });
+    },
+
+    // 绑定 end date select 点击事件
+    bindEndSelect() {
+      const _self = this;
+      addEvent(_self.dateEnd, 'click', (e) => {
+        e = e || window.event;
+
+        _self.isStart = false;
+
+        let year, month, day;
+
+        if (_self.selectRnageValue[0] && _self.selectRnageValue[1]) {
+          // 有选中值
+          year = _self.curYear = _self.endSelectYear;
+          month = _self.curMonth = _self.endSelectMonth;
+        } else {
+          year = _self.curYear;
+          month = _self.curMonth;
+        }
+        day = _self.endSelectDay;
+        if (!_self.pickerWrap) {
+          _self.renderDatePicker({year, month, day});
+        } else {
+          if (_self.isDatePanel) {
+            _self.toYearMonth(
+              {
+                toYear: year,
+                toMonth: month,
+                isEnd: true
+              }
+            );
+          }
+        }
+        _self.showDatePicker(e);
       });
     },
 
@@ -878,14 +981,71 @@ var utils = (function () {
       _self.pickerWrap.style.opacity = 0;
       _self.dateSelector.classList.remove('focus');
       _self.dateStart.classList.remove('focus');
-      if (_self.selectYear) {
-        _self.dateStart.innerText = _self.dateToStr({
-          year: _self.selectYear,
-          month: _self.selectMonth,
-          day: _self.selectDay
-        });
+      if (_self.supportRange) {
+        // 范围选择
+        _self.dateEnd.classList.remove('focus'); // 范围选择的结束日期
+        if (_self.selectRnageValue[0] && _self.selectRnageValue[1]) {
+          _self.dateStart.innerText = _self.selectRnageValue[0];
+          _self.dateEnd.innerText = _self.selectRnageValue[1];
+          _self.selectYear = _self.strToDate(_self.selectRnageValue[0]).year;
+          _self.selectMonth = _self.strToDate(_self.selectRnageValue[0]).month;
+          _self.selectDay = _self.strToDate(_self.selectRnageValue[0]).day;
+          _self.endSelectYear = _self.strToDate(_self.selectRnageValue[1]).year;
+          _self.endSelectMonth = _self.strToDate(_self.selectRnageValue[1]).month;
+          _self.endSelectDay = _self.strToDate(_self.selectRnageValue[1]).day;
+        } else {
+          _self.selectYear = 0;
+          _self.selectMonth = 0;
+          _self.selectDay = 0;
+          _self.endSelectYear = 0;
+          _self.endSelectMonth = 0;
+          _self.endSelectDay = 0;
+          _self.dateStart.innerText = '请选择开始日期';
+          _self.dateEnd.innerText = '请选择结束日期';
+          _self.selectDay = _self.endSelectDay = 0;
+        }
+        _self.bufferRangeValue = [];
+        _self.tempRanges = _self.ranges;
       } else {
-        _self.dateStart.innerText = '请选择日期';
+        // 单选
+        if (_self.selectYear) {
+          _self.dateStart.innerText = _self.dateToStr({
+            year: _self.selectYear,
+            month: _self.selectMonth,
+            day: _self.selectDay
+          });
+        } else {
+          _self.dateStart.innerText = '请选择日期';
+        }
+      }
+
+    },
+
+    // 显示 date picker
+    showDatePicker(e) {
+      e = e || window.event;
+      const _self     = this,
+            tar       = e.target || e.srcElement,
+            parent    = tar.parentNode,
+            position  = getElemDocPosition(parent),
+            pHeight   = getStyles(parent, 'height'),
+            panelLeft = position.left,
+            panelTop  = position.top + pHeight + 3;
+
+      elemChildren(parent).forEach((item) => {
+        item.classList.remove('focus');
+      });
+      tar.classList.add('focus');
+      parent.classList.add('focus');
+
+      if (_self.pickerWrap.className.includes('hidden')) {
+        _self.pickerWrap.classList.remove('hidden');
+        _self.pickerWrap.style.left = panelLeft + 'px';
+        _self.pickerWrap.style.top = panelTop + _self.animateDis + 'px';
+        animate(_self.pickerWrap, {
+          top: panelTop,
+          opacity: 1
+        }, 300);
       }
     },
 
@@ -893,14 +1053,20 @@ var utils = (function () {
     datePreYear() {
       const _self = this;
       _self.curYear--;
-      _self.toYearMonth(_self.curYear, _self.curMonth);
+      _self.toYearMonth({
+        toYear: _self.curYear,
+        toMonth: _self.curMonth
+      });
     },
 
     // 日期 panel 下一年
     dateNextYear() {
       const _self = this;
       _self.curYear++;
-      _self.toYearMonth(_self.curYear, _self.curMonth);
+      _self.toYearMonth({
+        toYear: _self.curYear,
+        toMonth: _self.curMonth
+      });
     },
 
     // 上个月事件
@@ -911,7 +1077,10 @@ var utils = (function () {
         _self.curMonth = 12;
         _self.curYear--;
       }
-      _self.toYearMonth(_self.curYear, _self.curMonth);
+      _self.toYearMonth({
+        toYear: _self.curYear,
+        toMonth: _self.curMonth
+      });
     },
 
     // 下个月事件
@@ -922,7 +1091,10 @@ var utils = (function () {
         _self.curMonth = 1;
         _self.curYear++;
       }
-      _self.toYearMonth(_self.curYear, _self.curMonth);
+      _self.toYearMonth({
+        toYear: _self.curYear,
+        toMonth: _self.curMonth
+      });
     },
 
     // 选择日期事件
@@ -949,10 +1121,78 @@ var utils = (function () {
         if (tdElem.className.includes('picker-out-view')) {
           _self.curYear = _self.selectYear;
           _self.curMonth = _self.selectMonth;
-          _self.toYearMonth(_self.curYear, _self.curMonth);
+          _self.toYearMonth({
+            toYear: _self.curYear,
+            toMonth: _self.curMonth
+          });
         }
 
         _self.dateCancelFocus();
+      }
+    },
+
+    // 范围 选择日期事件
+    selectRangeDate(e) {
+      e = e || window.event;
+      const _self  = this,
+            tar    = e.target || e.srcElement,
+            tdElem = _self.getTdElement(tar);
+
+      let dateStr = '',
+          dateObj = {},
+          isEnd   = false;
+
+      if (tdElem && !tdElem.className.includes('picker-cell-disable')) {
+        dateStr = tdElem.getAttribute('title');
+        dateObj = _self.strToDate(dateStr);
+
+        // _self.activeCurDate(tdElem);
+
+        if (tdElem.className.includes('picker-out-view')) {
+          _self.curYear = dateObj.year;
+          _self.curMonth = dateObj.month;
+        }
+
+        if (_self.isStart) { // 选择的是开始日期
+          _self.selectYear = dateObj.year;
+          _self.selectMonth = dateObj.month;
+          _self.selectDay = dateObj.day;
+          _self.tempRanges = [dateStr, _self.ranges[1]];
+          _self.bufferRangeValue[0] = dateStr;
+        } else { // 选择的是结束日期
+          isEnd = true;
+          _self.endSelectYear = dateObj.year;
+          _self.endSelectMonth = dateObj.month;
+          _self.endSelectDay = dateObj.day;
+          _self.tempRanges = [_self.ranges[0], dateStr];
+          _self.bufferRangeValue[1] = dateStr;
+        }
+
+        _self.toYearMonth({
+          toYear: dateObj.year,
+          toMonth: dateObj.month,
+          ranges: _self.tempRanges,
+          isEnd
+        });
+
+        if (_self.bufferRangeValue[0] && _self.bufferRangeValue[1]) {
+          _self.selectRnageValue = _self.bufferRangeValue;
+          _self.onChange(_self.selectRnageValue);
+          _self.dateCancelFocus();
+        } else {
+          if (_self.isStart) {
+            _self.isStart = false;
+            _self.dateStart.innerText = dateStr;
+            _self.dateStart.classList.remove('focus');
+            _self.dateEnd.classList.add('focus');
+          } else {
+            _self.isStart = true;
+            _self.dateEnd.innerText = dateStr;
+            _self.dateEnd.classList.remove('focus');
+            _self.dateStart.classList.add('focus');
+          }
+        }
+
       }
     },
 
@@ -974,10 +1214,11 @@ var utils = (function () {
         _self.addPanel(_self.generateDatePanel({
           year: _self.curYear,
           month: _self.curMonth,
-          day: toDay
+          day: toDay,
         }));
 
         _self.bindDatePanel();
+        _self.isDatePanel = true;
       }
     },
 
@@ -1006,6 +1247,8 @@ var utils = (function () {
         }));
 
         _self.bindDatePanel();
+
+        _self.isDatePanel = true;
       }
     },
 
@@ -1016,19 +1259,32 @@ var utils = (function () {
       _self.curYear = _self.selectYear = todayDateObj.year;
       _self.curMonth = _self.selectMonth = todayDateObj.month;
       _self.selectDay = todayDateObj.day;
-      _self.toYearMonth(todayDateObj.year, todayDateObj.month);
+      _self.toYearMonth({
+        toYear: todayDateObj.year,
+        toMonth: todayDateObj.month
+      });
       _self.onChange(todayDateObj, _self.dateToStr(todayDateObj));
       _self.dateCancelFocus();
     },
 
-    // 清除日期选择
-    clearDate() {
+    // 清除 单选 日期选择
+    clearSingleDate() {
       const _self = this;
       _self.selectYear = 0;
       _self.selectMonth = 0;
       _self.selectDay = 0;
       _self.dateCancelFocus();
-      _self.toYearMonth(_self.curYear, _self.curMonth);
+      _self.toYearMonth({
+        toYear: _self.curYear,
+        toMonth: _self.curMonth
+      });
+    },
+
+    // 清除 范围 日期选择
+    clearRangeDate() {
+      const _self = this;
+      _self.selectRnageValue = [];
+      _self.dateCancelFocus();
     },
 
     // 触发选择年份
@@ -1045,6 +1301,8 @@ var utils = (function () {
 
       _self.centerYear = _self.curYear;
       _self.bindYearPanel();
+
+      _self.isDatePanel = false;
     },
 
     // 向前一个年份范围
@@ -1086,6 +1344,7 @@ var utils = (function () {
       }));
 
       _self.bindMonthPanel();
+      _self.isDatePanel = false;
     },
 
     // 月份 panel 上一年
@@ -1113,12 +1372,17 @@ var utils = (function () {
     },
 
     // 切换到某年某月 - 切换 日期 content
-    toYearMonth(toYear, toMonth) {
+    toYearMonth({toYear, toMonth, ranges, isEnd}) {
       const _self = this;
+      ranges = ranges || _self.tempRanges;
       let toDay = 0;
-      if (toYear === _self.selectYear && toMonth === _self.selectMonth) toDay = _self.selectDay;
-      _self.yearBtn.innerText = _self.curYear + '年';
-      _self.monthBtn.innerText = _self.curMonth + '月';
+      if (!isEnd) {
+        if (toYear === _self.selectYear && toMonth === _self.selectMonth) toDay = _self.selectDay;
+      } else {
+        if (toYear === _self.endSelectYear && toMonth === _self.endSelectMonth) toDay = _self.endSelectDay;
+      }
+      _self.yearBtn.innerText = toYear + '年';
+      _self.monthBtn.innerText = toMonth + '月';
 
       if (_self.animate) {
         animate(_self.pickerBody, {
@@ -1129,7 +1393,8 @@ var utils = (function () {
             _self.generateDateContent({
               year: toYear,
               month: toMonth,
-              day: toDay
+              day: toDay,
+              ranges
             }));
 
           animate(_self.pickerBody, {
@@ -1142,7 +1407,8 @@ var utils = (function () {
           _self.generateDateContent({
             year: toYear,
             month: toMonth,
-            day: toDay
+            day: toDay,
+            ranges
           }));
       }
 
@@ -1174,7 +1440,7 @@ var utils = (function () {
     },
 
     // 生成日期 content
-    generateDateContent({year, month, day}) {
+    generateDateContent({year, month, day, ranges}) {
       const _self         = this,
             date          = new Date(`${year}-${month}-01`), // 1号日期对象
             weekForOne    = date.getDay(), // 1号是星期几
@@ -1184,6 +1450,8 @@ var utils = (function () {
             nextMonth     = (month + 1) === 13 ? 1 : (month + 1),// 下个月是几月
             nextYear      = nextMonth === 1 ? year + 1 : year,// 下个月属于哪年
             preMonthDays  = new Date(preYear, preMonth, 0).getDate(); // 上个月天数
+
+      ranges = ranges || _self.tempRanges;
 
       let tempDiv   = doc.createElement('div'),
           tr        = doc.createElement('tr'),
@@ -1203,8 +1471,8 @@ var utils = (function () {
           isRange: _self.dateInRange({
             year: preYear,
             month: preMonth,
-            day: i
-          }, _self.ranges)
+            day: preMonthDays - i + 1,
+          }, ranges)
         });
         tr.innerHTML += td;
         tdNum++;
@@ -1223,7 +1491,7 @@ var utils = (function () {
             year,
             month,
             day: i
-          }, _self.ranges)
+          }, ranges)
         });
         if (tdNum % 7 === 0 && tdNum !== 0) {
           tempDiv.appendChild(tr);
@@ -1246,7 +1514,7 @@ var utils = (function () {
             year: nextYear,
             month: nextMonth,
             day: i
-          }, _self.ranges)
+          }, ranges)
         });
         if (tdNum % 7 === 0) {
           tempDiv.appendChild(tr);
@@ -1585,7 +1853,7 @@ var utils = (function () {
 
     // 获取 date picker 外层模板
     getDatePickerTpl() {
-      return '<div class="easy-date-picker">\
+      return '<div class="easy-date-picker hidden">\
                 <div class="picker-panel-container J-picker-panel-container">{{children}}</div>\
               </div>';
     },
@@ -1621,10 +1889,13 @@ var utils = (function () {
 
     // 判断年月日是否在范围内
     dateInRange(date, range) {
+      if (!range) return true;
+
       const _self = this,
-            min   = new Date(range[0]),
-            max   = new Date(range[1]),
+            min   = range[0] ? new Date(range[0]) : -Infinity,
+            max   = range[1] ? new Date(range[1]) : +Infinity,
             now   = new Date(_self.dateToStr(date));
+
       return now >= min && now <= max;
     },
   };
